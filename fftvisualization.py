@@ -18,14 +18,14 @@ sf.write("440hz_sine.wav", y,fs)
 # Generate phase shifted cancellation
 ydelayed = np.zeros_like(y)
 
-delay = 1/(2*f1)              # half period = 180 degrees
+delay = 1/(2*f1)              
 delayinsamples = int(delay*fs)
 
-ydelayed[delayinsamples:] = -y[:-delayinsamples]
+ydelayed[delayinsamples:] = y[:-delayinsamples]
 
 # Error signal
 yresult = y + ydelayed
-# FFT of resultat signal
+# FFT of resultant signal
 Y = np.fft.rfft(yresult)
 freq = np.fft.rfftfreq(len(yresult), d=1/fs)
 
@@ -37,19 +37,20 @@ mag[1:-1] *= 2
 fig, ax = plt.subplots(2, 1, figsize=(12, 8))
 
 # Time-domain plot
-ax[0].plot(t, y, label="original 440 hz sine wave")
+ax[0].plot(t, y, "-",label="original 440 hz sine wave")
 ax[0].plot(t, ydelayed, linestyle="--", label="shifted cancellation wave")
-ax[0].plot(t, yresult, label="error")
+ax[0].plot(t, yresult, ":", label="error")
 ax[0].set_xlim(0, 0.01)
 ax[0].set_title("Time Domain")
 ax[0].set_xlabel("Time (s)")
 ax[0].set_ylabel("Amplitude")
 ax[0].grid(True)
+ax[0].legend()
 
 # Frequency-domain plot
 ax[1].plot(freq, mag)
 ax[1].set_xlim(0, fs/2)
-ax[1].set_title("Frequency Domain")
+ax[1].set_title("FFT of resultant")
 ax[1].set_xlabel("Frequency (Hz)")
 ax[1].set_ylabel("Amplitude")
 ax[1].grid(True)
