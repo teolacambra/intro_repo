@@ -94,12 +94,12 @@ class Spectrum:
 
 
 # Create one window with two plots
-fig, ax = plt.subplots(3, 2, figsize=(12, 8))
+fig, ax = plt.subplots(2, 2, figsize=(12, 8))
 # Time-domain plot
 ax[0,0].plot(t, y, "-",label="original 440 hz sine wave")
 ax[0,0].plot(t, anend_padded, linestyle="--", label="shifted cancellation wave")
 ax[0,0].plot(t, e, ":", label="error")
-ax[0,0].set_xlim(0, 0.01)
+ax[0,0].set_xlim(0, 0.005)
 ax[0,0].set_title("Time Domain")
 ax[0,0].set_xlabel("Time (s)")
 ax[0,0].set_ylabel("Amplitude")
@@ -110,22 +110,22 @@ Y_spec = Spectrum(y,fs)
 Antinoise_spec = Spectrum(anend_padded,fs)
 Error_spec = Spectrum(e,fs)
 
-Y_spec.plot_mag(ax[1,1],"Reference")
-Antinoise_spec.plot_db(ax[2,0],"Anti-noise")
-Error_spec.plot_db(ax[2,1], "Residual Error")
-ax[1,1].set_xlabel("Frequency (Hz)")
-ax[1,1].set_ylabel("Magnitude")
+Y_spec.plot_mag(ax[1,0],"Reference")
+Antinoise_spec.plot_db(ax[0,1],"Anti-noise")
+Error_spec.plot_db(ax[1,1], "Residual Error")
+ax[1,0].set_xlabel("Frequency (Hz)")
+ax[1,0].set_ylabel("Magnitude")
 
-ax[2,0].set_xlabel("Frequency (Hz)")
-ax[2,0].set_ylabel("Magnitude, dB")
-ax[2,0].set_xscale("log")
+ax[0,1].set_xlabel("Frequency (Hz)")
+ax[1,1].set_ylabel("Magnitude, dB")
+ax[1,1].set_xscale("log")
 plt.grid()
 plt.tight_layout(pad=2.0)
 plt.figure()
 for a in ax.flat:
     a.legend()
 
-ax[1].grid(True)
+ax[1,1].grid(True)
 
 plt.show()
 
