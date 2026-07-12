@@ -25,6 +25,8 @@ y = (A1 * np.sin(2 * np.pi * f1 * t)) + (2*A1 * np.sin(2 * np.pi * 4*f1 * t)) + 
 # FFT of resultant signal
 Y = np.fft.fft(y)
 freq = np.fft.fftfreq(len(y), d=1/fs)
+positive = freq >= 0
+fq = freq[positive]
 G = np.ones_like(Y, dtype=complex) # frequency response function G(f)
 # remember G(f) times Y(f) = Y_received(f)
 # so for an antinoise, we want G(f)* Y(f) = -(P(f) *H(f)* Y(f)). Here the right side is antispeaker -> ref mic
@@ -57,13 +59,18 @@ class Spectrum:
         self.N = len(signal)
 
         Y = np.fft.fft(signal)
+        freq = np.fft.fftfreq(self.N, 1/fs)
+        # positive frequencies only
+        mask = freq >= 0
+        self.freq = freq[mask]
+        self.mag = np.abs(Y[mask]) / self.N
 
-        self.freq = np.fft.fftfreq(self.N, 1/fs)
-
-        self.mag = np.abs(Y) / self.N
+        # single-sided correction
         self.mag[1:-1] *= 2
 
-        self.phase = np.angle(Y)
+        self.phase = np.angle(Y[mask])
+       
+       
 
     def plot_mag(self, ax, label=None):
         ax.plot(self.freq, self.mag, label=label)
@@ -87,7 +94,7 @@ class Spectrum:
 
 
 # Create one window with two plots
-fig, ax = plt.subplots(3, 1, figsize=(12, 8))
+fig, ax = plt.subplots(4, 1, figsize=(12, 8))
 # Time-domain plot
 ax[0].plot(t, y, "-",label="original 440 hz sine wave")
 ax[0].plot(t, anend_padded, linestyle="--", label="shifted cancellation wave")
