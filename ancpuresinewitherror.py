@@ -13,7 +13,7 @@ A1 = 1.0             # Amplitude
 
 # Generate sine wave
 t = np.arange(0, duration, 1/fs)
-y = (A1 * np.sin(2 * np.pi * f1 * t))
+y = (A1 * np.sin(2 * np.pi * f1 * t)) + (2*A1 * np.sin(2 * np.pi * 4*f1 * t)) + (3*A1 * np.sin(2 * np.pi * 9*f1 * t))
 #simulate an impulse response
 # g(t) = impulse response for sound source -> error mic
 # p(t) = impulse response for speaker back to error mic
@@ -23,8 +23,8 @@ y = (A1 * np.sin(2 * np.pi * f1 * t))
 
 # fft of original function:
 # FFT of resultant signal
-Y = np.fft.rfft(y)
-freq = np.fft.rfftfreq(len(y), d=1/fs)
+Y = np.fft.fft(y)
+freq = np.fft.fftfreq(len(y), d=1/fs)
 G = np.ones_like(Y, dtype=complex) # frequency response function G(f)
 # remember G(f) times Y(f) = Y_received(f)
 # so for an antinoise, we want G(f)* Y(f) = -(P(f) *H(f)* Y(f)). Here the right side is antispeaker -> ref mic
@@ -56,9 +56,9 @@ class Spectrum:
         self.fs = fs
         self.N = len(signal)
 
-        Y = np.fft.rfft(signal)
+        Y = np.fft.fft(signal)
 
-        self.freq = np.fft.rfftfreq(self.N, 1/fs)
+        self.freq = np.fft.fftfreq(self.N, 1/fs)
 
         self.mag = np.abs(Y) / self.N
         self.mag[1:-1] *= 2
@@ -77,6 +77,14 @@ class Spectrum:
         ax.set_ylabel("Phase (rad)")
         ax.grid(True)
 
+    def plot_db(self, ax, label=None):
+        ax.plot(self.freq,
+        20*np.log10(self.mag + 1e-12),
+        label=label)
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Gain (dB)")
+        ax.grid(True)
+
 
 # Create one window with two plots
 fig, ax = plt.subplots(3, 1, figsize=(12, 8))
@@ -93,21 +101,27 @@ ax[0].legend()
 # Frequency-domain plot
 Y_spec = Spectrum(y,fs)
 Antinoise_spec = Spectrum(anend_padded,fs)
+Error_spec = Spectrum(e,fs)
+
 Y_spec.plot_mag(ax[1],"Reference")
-Antinoise_spec.plot_mag(ax[2],"Anti-noise")
+Antinoise_spec.plot_db(ax[2],"Anti-noise")
+Error_spec.plot_db(ax[3], "Residual Error")
 ax[1].set_xlabel("Frequency (Hz)")
 ax[1].set_ylabel("Magnitude")
 
 ax[2].set_xlabel("Frequency (Hz)")
-ax[2].set_ylabel("Magnitude")
+ax[2].set_ylabel("Magnitude, dB")
 plt.grid()
-plt.show()
+plt.tight_layout(pad=2.0)
 plt.figure()
 for a in ax.flat:
     a.legend()
 
 ax[1].grid(True)
 
-plt.tight_layout()
 plt.show()
+
+
+
+
 
