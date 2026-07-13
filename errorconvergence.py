@@ -32,7 +32,10 @@ G = np.ones_like(Y, dtype=complex) # frequency response function G(f)
 # so for an antinoise, we want G(f)* Y(f) = -(P(f) *H(f)* Y(f)). Here the right side is antispeaker -> ref mic
 # but the left side is source sound -> room 
 # so H(f) = -G(f)/P(f)
-H = -1/G 
+H_ideal = -1/G
+# Start the adaptive filter off from a deliberately imperfect estimate
+# (80% gain, slight phase offset) so iteration 1 has real error to reduce.
+H = 0.8 * H_ideal * np.exp(1j * np.deg2rad(15))
 # use filter on the pure signal
 N = H * Y
 antinoise = np.real(np.fft.ifft(N))
