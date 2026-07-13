@@ -102,7 +102,11 @@ def measure_impulse_response(f1=f1, f2=f2, duration=duration, fs=fs,
 
     h = deconvolve(recorded, stimulus)
 
-    # Trim: keep a bit before the main peak plus a tail for the room decay
+    # Trim: keep a bit before the main peak plus a tail for the room decay.
+    # NOTE: this re-zeroes each measurement relative to its OWN peak, which
+    # throws away how this path's propagation delay compares to any other
+    # path you measure. `peak` (saved below) is what lets a caller re-align
+    # multiple measurements onto a shared time origin afterward.
     peak = np.argmax(np.abs(h))
     start = max(0, peak - int(0.01 * fs))
     end = min(len(h), peak + int(1.0 * fs))
@@ -110,8 +114,9 @@ def measure_impulse_response(f1=f1, f2=f2, duration=duration, fs=fs,
 
     np.save(f"{save_prefix}.npy", h_trimmed)
     np.save(f"{save_prefix}_fs.npy", np.array([fs]))
+    np.save(f"{save_prefix}_delay.npy", np.array([peak]))  # samples from stimulus start to direct-sound arrival
     print(f"Saved impulse response ({len(h_trimmed)} samples, {len(h_trimmed)/fs:.3f}s) "
-          f"to {save_prefix}.npy")
+          f"to {save_prefix}.npy (propagation delay: {peak/fs*1000:.1f} ms)")
 
     return h_trimmed, fs
 

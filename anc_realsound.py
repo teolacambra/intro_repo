@@ -35,19 +35,32 @@ def load_impulse_response(prefix, expected_fs):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     ir_path = os.path.join(base_dir, f"{prefix}.npy")
     ir_fs_path = os.path.join(base_dir, f"{prefix}_fs.npy")
-    if not (os.path.exists(ir_path) and os.path.exists(ir_fs_path)):
+    delay_path = os.path.join(base_dir, f"{prefix}_delay.npy")
+    if not (os.path.exists(ir_path) and os.path.exists(ir_fs_path) and os.path.exists(delay_path)):
         raise FileNotFoundError(
-            f"{prefix}.npy not found. Run impulseresponseack.py's "
+            f"{prefix}.npy (or its _fs/_delay companion) not found. Run impulseresponseack.py's "
             f"measure_impulse_response(save_prefix=\"{prefix}\") first."
         )
     h = np.load(ir_path)
     ir_fs = int(np.load(ir_fs_path)[0])
     if ir_fs != expected_fs:
         raise ValueError(f"{prefix} was measured at {ir_fs} Hz, but this script uses fs={expected_fs} Hz.")
-    return h
+    delay = int(np.load(delay_path)[0])  # samples from stimulus start to direct-sound arrival
+    return h, delay
 
-h_G = load_impulse_response("impulse_response_G", fs)
-h_P = load_impulse_response("impulse_response_P", fs)
+h_G, delay_G = load_impulse_response("impulse_response_G", fs)
+h_P, delay_P = load_impulse_response("impulse_response_P", fs)
+
+# Each impulse response was independently trimmed to start ~0.01s before its
+# OWN peak (see impulseresponseack.py), which discards how the two paths'
+# propagation delays compare to one another. Re-insert that difference so G
+# and P reflect their true relative timing instead of silently assuming both
+# speakers' sound arrives at the mic simultaneously.
+path_delay_diff = delay_P - delay_G  # samples; positive => antinoise path slower than source path
+if path_delay_diff > 0:
+    h_G = np.concatenate([np.zeros(path_delay_diff), h_G])
+elif path_delay_diff < 0:
+    h_P = np.concatenate([np.zeros(-path_delay_diff), h_P])
 
 G = np.fft.fft(h_G, n=len(y)) # frequency response function G(f), zero-padded to match Y's length
 P = np.fft.fft(h_P, n=len(y)) # frequency response function P(f), zero-padded to match Y's length
@@ -94,21 +107,33 @@ print(f"Converged after {iteration + 1} iterations, final RMS error = {err_metri
 # one-iteration-stale `antinoise` left over from the loop above).
 antinoise_final = np.real(np.fft.ifft(H * Y))
 
+# If the antinoise speaker's path to the mic is slower than the source
+# speaker's path (path_delay_diff > 0), true cancellation needs the antinoise
+# to start before the source does - not achievable in a live system, but fine
+# here since we're pre-rendering both tracks: delay the SOURCE track's start
+# instead, so file playback (not the underlying math) stays causal.
+head_start = max(path_delay_diff, 0)
+if head_start > 0:
+    print(f"Antinoise path is {head_start/fs*1000:.1f} ms slower than the source path; "
+          f"delaying the source track's start by that much in the exported files.")
+y_export = np.concatenate([np.zeros(head_start), y])
+antinoise_export = np.concatenate([antinoise_final, np.zeros(head_start)])
+
 # Export both signals for physical playback: source sine through the source
 # speaker, antinoise through the antinoise speaker, in sync. Their own acoustic
 # paths (G, P) do the propagation for real, so we export the drive signals as-is
 # and only apply a single shared gain (preserves the relative amplitude the
 # cancellation depends on) to keep both under full scale.
-peak = max(np.max(np.abs(y)), np.max(np.abs(antinoise_final)))
+peak = max(np.max(np.abs(y_export)), np.max(np.abs(antinoise_export)))
 scale = 0.99 / peak if peak > 0 else 1.0
-sf.write("source_wave.wav", (y * scale).astype(np.float32), fs)
-sf.write("antinoise_wave.wav", (antinoise_final * scale).astype(np.float32), fs)
+sf.write("source_wave.wav", (y_export * scale).astype(np.float32), fs)
+sf.write("antinoise_wave.wav", (antinoise_export * scale).astype(np.float32), fs)
 print(f"Exported source_wave.wav and antinoise_wave.wav (scaled by {scale:.3f} to avoid clipping). "
       f"Play both simultaneously, in sync, through their respective speakers to cancel.")
 
 # Stereo file (left = source, right = antinoise) so a single playback keeps
 # them sample-aligned as long as each channel is routed to its own speaker.
-combined = np.stack([y * scale, antinoise_final * scale], axis=1).astype(np.float32)
+combined = np.stack([y_export * scale, antinoise_export * scale], axis=1).astype(np.float32)
 sf.write("combined.wav", combined, fs)
 print("Exported combined.wav (L = source, R = antinoise) for sample-synced playback.")
 # Normalize for graphing
