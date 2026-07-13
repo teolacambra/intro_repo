@@ -36,15 +36,34 @@ H_ideal = -1/G
 # Start the adaptive filter off from a deliberately imperfect estimate
 # (80% gain, slight phase offset) so iteration 1 has real error to reduce.
 H = 0.8 * H_ideal * np.exp(1j * np.deg2rad(15))
-# use filter on the pure signal
-N = H * Y
-antinoise = np.real(np.fft.ifft(N))
+# Adaptively refine H over iterations instead of using one fixed filter pass
+mu = 0.05          # step size / learning rate
+tol = 1e-3         # stop when RMS error drops below this
+max_iter = 200
+error_history = []
 
-# Simulate the Propagation through acoustic path - noise is now filtered by frequency response
-antinoiseendline = np.real(np.fft.ifft(G * np.fft.fft(antinoise)))
-anend_padded = np.pad(antinoiseendline, (0, len(y)-len(antinoiseendline)))
-# Residual error
-e = y + anend_padded
+for iteration in range(max_iter):
+    N = H * Y
+    antinoise = np.real(np.fft.ifft(N))
+
+    # Simulate the Propagation through acoustic path - noise is now filtered by frequency response
+    antinoiseendline = np.real(np.fft.ifft(G * np.fft.fft(antinoise)))
+    anend_padded = np.pad(antinoiseendline, (0, len(y)-len(antinoiseendline)))
+    # Residual error
+    e = y + anend_padded
+
+    err_metric = np.sqrt(np.mean(e**2))
+    error_history.append(err_metric)
+    if err_metric < tol:
+        break
+
+    # Normalized-LMS-style update: nudge H toward lower error using the
+    # path the reference actually takes to the error mic (X = G * Y)
+    E = np.fft.fft(e)
+    X = G * Y
+    H = H - mu * np.conj(X) * E / (np.abs(X)**2 + 1e-12)
+
+print(f"Converged after {iteration + 1} iterations, final RMS error = {err_metric:.6f}")
 # Normalize for graphing
 import numpy as np
 import matplotlib.pyplot as plt
@@ -96,12 +115,20 @@ class Spectrum:
         ax.grid(True)
 
 
+# Error convergence over iterations
+plt.figure()
+plt.semilogy(error_history, marker="o")
+plt.xlabel("Iteration")
+plt.ylabel("RMS Error")
+plt.title("Error Convergence")
+plt.grid(True, which="both")
+
 # Create one window with two plots
 fig, ax = plt.subplots(2, 2, figsize=(12, 8))
 # Time-domain plot
 ax[0,0].plot(t, y, "-",label="original 440 hz sine wave")
 ax[0,0].plot(t, anend_padded, linestyle="--", label="shifted cancellation wave")
-ax[0,0].plot(t, e, ":", label="error")
+ax[0,0].plot(t, e, ":", label="final error")
 ax[0,0].set_xlim(0, 0.005)
 ax[0,0].set_title("Time Domain")
 ax[0,0].set_xlabel("Time (s)")
@@ -113,11 +140,11 @@ Y_spec = Spectrum(y,fs)
 Antinoise_spec = Spectrum(anend_padded,fs)
 Error_spec = Spectrum(e,fs)
 
-Y_spec.plot_mag(ax[1,0],"Reference")
+Y_spec.plot_db(ax[1,0],"Reference")
 Antinoise_spec.plot_db(ax[0,1],"Anti-noise")
 Error_spec.plot_db(ax[1,1], "Residual Error")
 ax[1,0].set_xlabel("Frequency (Hz)")
-ax[1,0].set_ylabel("Magnitude")
+ax[1,0].set_ylabel("Magnitude, dB")
 
 ax[0,1].set_xlabel("Frequency (Hz)")
 ax[1,1].set_ylabel("Magnitude, dB")
