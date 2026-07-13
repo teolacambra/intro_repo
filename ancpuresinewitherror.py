@@ -23,8 +23,8 @@ y = (A1 * np.sin(2 * np.pi * f1 * t))
 
 # fft of original function:
 # FFT of resultant signal
-Y = np.fft.rfft(y)
-freq = np.fft.rfftfreq(len(y), d=1/fs)
+Y = np.fft.fft(y)
+freq = np.fft.fftfreq(len(y), d=1/fs)
 G = np.ones_like(Y, dtype=complex) # frequency response function G(f)
 # remember G(f) times Y(f) = Y_received(f)
 # so for an antinoise, we want G(f)* Y(f) = -(P(f) *H(f)* Y(f)). Here the right side is antispeaker -> ref mic
@@ -56,9 +56,9 @@ class Spectrum:
         self.fs = fs
         self.N = len(signal)
 
-        Y = np.fft.rfft(signal)
+        Y = np.fft.fft(signal)
 
-        self.freq = np.fft.rfftfreq(self.N, 1/fs)
+        self.freq = np.fft.fftfreq(self.N, 1/fs)
 
         self.mag = np.abs(Y) / self.N
         self.mag[1:-1] *= 2
