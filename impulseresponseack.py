@@ -3,6 +3,8 @@ import scipy.signal as signal
 import sounddevice as sd
 import soundfile as sf
 import matplotlib.pyplot as plt
+# File to calculate the impulse response of a space, assuming you are using two speakers - one to play the sound, one to plan the ANC antinoise
+# both of these have different responses, so we compute each individually with a sine sweep.
 
 # Measurement parameters
 fs = 44100
