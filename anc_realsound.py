@@ -5,6 +5,12 @@ import soundfile as sf
 import sounddevice as play
 import scipy
 import os
+import impulseresponseack
+
+
+#Active noise cancellation. Uses a separate file to generate an estimate of the impulse response
+# Then, uses real FFT to convolve the original sound with an inverse filter, cancelling the original noise
+# Both the original sound and the antinoise are exported to one stereo .wav file.
 # Parameters
 fs = 44100          # Sample rate (Hz)
 duration = 10.0      # seconds
